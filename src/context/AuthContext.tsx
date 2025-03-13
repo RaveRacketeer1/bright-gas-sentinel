@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@/types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { AuthError, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -29,10 +31,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Mock authentication for now - in real app this would be Supabase auth
-        const storedUser = localStorage.getItem('proton_user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
+        setLoading(true);
+        
+        // Get session from Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (session) {
+          handleSession(session);
         }
       } catch (error) {
         console.error('Error checking session:', error);
@@ -40,29 +49,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       }
     };
+    
+    // Setup auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        handleSession(session);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
 
     checkSession();
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const handleSession = (session: Session) => {
+    // Map Supabase user to our User type
+    setUser({
+      id: session.user.id,
+      email: session.user.email || ''
+    });
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
       
-      // This would be replaced with actual Supabase authentication
-      // Mock successful login for demo
-      const user: User = {
-        id: 'user-' + Math.random().toString(36).substr(2, 9),
-        email
-      };
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       
-      // Store in localStorage for demo
-      localStorage.setItem('proton_user', JSON.stringify(user));
-      setUser(user);
+      if (error) {
+        throw error;
+      }
       
       toast.success('Signed in successfully');
     } catch (error) {
       console.error('Error signing in:', error);
-      toast.error('Failed to sign in. Please check your credentials.');
+      toast.error(error instanceof AuthError ? error.message : 'Failed to sign in. Please check your credentials.');
       throw error;
     } finally {
       setLoading(false);
@@ -73,21 +100,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      // This would be replaced with actual Supabase authentication
-      // Mock successful registration for demo
-      const user: User = {
-        id: 'user-' + Math.random().toString(36).substr(2, 9),
-        email
-      };
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      });
       
-      // Store in localStorage for demo
-      localStorage.setItem('proton_user', JSON.stringify(user));
-      setUser(user);
+      if (error) {
+        throw error;
+      }
       
-      toast.success('Account created successfully');
+      toast.success('Account created successfully. Please check your email to verify your account.');
     } catch (error) {
       console.error('Error signing up:', error);
-      toast.error('Failed to create account. Please try again.');
+      toast.error(error instanceof AuthError ? error.message : 'Failed to create account. Please try again.');
       throw error;
     } finally {
       setLoading(false);
@@ -98,14 +123,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      // This would be replaced with actual Supabase signOut
-      localStorage.removeItem('proton_user');
-      setUser(null);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
       
       toast.success('Signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
-      toast.error('Failed to sign out. Please try again.');
+      toast.error(error instanceof AuthError ? error.message : 'Failed to sign out. Please try again.');
       throw error;
     } finally {
       setLoading(false);
