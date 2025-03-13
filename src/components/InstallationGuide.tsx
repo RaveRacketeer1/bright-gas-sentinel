@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Info, Magnet, Screwdriver, ShieldCheck } from "lucide-react";
+import { Info, Magnet, Wrench, ShieldCheck } from "lucide-react";
 
 const InstallationGuide: React.FC = () => {
   const steps = [
@@ -12,7 +12,7 @@ const InstallationGuide: React.FC = () => {
       description: "The device uses a magnetometer to measure the needle's position without direct contact with the tank or valve, ensuring safety."
     },
     {
-      icon: <Screwdriver className="h-5 w-5 text-proton" />,
+      icon: <Wrench className="h-5 w-5 text-proton" />,
       title: "Easy Installation",
       description: "Mount the device using the two included screws. Position it directly over the gauge's needle for accurate readings."
     },
