@@ -35,16 +35,17 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   const fetchAvailableDevices = async () => {
     try {
       setIsLoadingDevices(true);
-      // Fetch all devices from Proton_Gas table
+      // Fetch all devices from Proton_Gas table without the user_id filter
+      // This shows all devices regardless of assignment status
       const { data, error } = await supabase
         .from('Proton_Gas')
-        .select('id, serial_number')
-        .is('user_id', null); // Only get unassigned devices
+        .select('id, serial_number');
       
       if (error) {
         throw error;
       }
       
+      console.log("Available devices:", data);
       setAvailableDevices(data || []);
     } catch (error) {
       console.error("Error fetching available devices:", error);
