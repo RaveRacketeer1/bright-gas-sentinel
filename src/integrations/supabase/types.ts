@@ -41,6 +41,7 @@ export type Database = {
       Proton_Gas: {
         Row: {
           created_at: string | null
+          device_name: string | null
           gas_level: number | null
           id: string
           serial_number: string
@@ -48,6 +49,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          device_name?: string | null
           gas_level?: number | null
           id?: string
           serial_number: string
@@ -55,6 +57,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          device_name?: string | null
           gas_level?: number | null
           id?: string
           serial_number?: string

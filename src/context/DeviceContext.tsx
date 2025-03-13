@@ -81,7 +81,7 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             id: device.id,
             serialNumber: device.serial_number,
             userId: device.user_id,
-            name: `Tank ${device.serial_number.slice(-4)}`, // Default name based on serial
+            name: device.device_name || `Tank ${device.serial_number.slice(-4)}`, // Use device_name if available
             lastReading
           };
           
@@ -104,10 +104,10 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Check if device already exists in the user's devices
       if (devices.some(d => d.serialNumber === serialNumber)) {
-        throw new Error('Device with this serial number already exists');
+        throw new Error('Device with this serial number already exists in your account');
       }
       
-      // Check if the device exists in the database
+      // First, check if the serial number exists in the Proton_Gas table
       const { data: existingDevice, error: deviceCheckError } = await supabase
         .from('Proton_Gas')
         .select('*')
@@ -118,59 +118,32 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         throw deviceCheckError;
       }
       
+      if (!existingDevice) {
+        throw new Error('Device with this serial number not found in our database');
+      }
+      
       let deviceId: string;
       
-      if (existingDevice) {
-        // If device exists but not assigned to a user, assign it
-        if (!existingDevice.user_id) {
-          const { error: updateError } = await supabase
-            .from('Proton_Gas')
-            .update({ user_id: user.id })
-            .eq('id', existingDevice.id);
-          
-          if (updateError) {
-            throw updateError;
-          }
-          
-          deviceId = existingDevice.id;
-        } else if (existingDevice.user_id !== user.id) {
-          throw new Error('This device is already registered to another user');
-        } else {
-          throw new Error('You have already registered this device');
-        }
+      // If device exists, check if it's already assigned to a user
+      if (existingDevice.user_id && existingDevice.user_id !== user.id) {
+        throw new Error('This device is already registered to another user');
+      } else if (existingDevice.user_id === user.id) {
+        throw new Error('You have already registered this device');
       } else {
-        // Device doesn't exist, create a new one
-        const { data: newDevice, error: insertError } = await supabase
+        // Device exists but not assigned to any user, assign it to current user
+        const { error: updateError } = await supabase
           .from('Proton_Gas')
-          .insert({
-            serial_number: serialNumber,
+          .update({ 
             user_id: user.id,
-            gas_level: Math.floor(Math.random() * 40) + 40 // Random initial level for demo
+            device_name: name || `Tank ${serialNumber.slice(-4)}`
           })
-          .select()
-          .single();
+          .eq('id', existingDevice.id);
         
-        if (insertError) {
-          throw insertError;
+        if (updateError) {
+          throw updateError;
         }
         
-        if (!newDevice) {
-          throw new Error('Failed to create device');
-        }
-        
-        deviceId = newDevice.id;
-        
-        // Create initial gas reading
-        const { error: readingError } = await supabase
-          .from('gas_history')
-          .insert({
-            device_id: deviceId,
-            gas_level: newDevice.gas_level
-          });
-        
-        if (readingError) {
-          console.error('Error creating initial reading:', readingError);
-        }
+        deviceId = existingDevice.id;
       }
       
       // Refresh devices to get the newly added device
@@ -187,7 +160,7 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user) throw new Error('You must be logged in to remove a device');
     
     try {
-      // Just unlink the device from the user (don't delete it)
+      // Just unlink the device from the user (don't delete it from database)
       const { error } = await supabase
         .from('Proton_Gas')
         .update({ user_id: null })
@@ -198,7 +171,7 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         throw error;
       }
       
-      // Update local state
+      // Update local state by removing the device from the devices array
       setDevices(devices.filter(d => d.id !== deviceId));
       
       toast.success('Device removed successfully');

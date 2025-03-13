@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface AddDeviceDialogProps {
   open: boolean;
@@ -20,17 +20,12 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   const [serialNumber, setSerialNumber] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (serialNumber.trim() === "") {
-      toast({
-        title: "Error",
-        description: "Please enter a valid serial number",
-        variant: "destructive",
-      });
+      toast.error("Please enter a valid serial number");
       return;
     }
     
@@ -43,16 +38,9 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
       setDeviceName("");
       onOpenChange(false);
       
-      toast({
-        title: "Device Added",
-        description: "Your device has been added successfully",
-      });
+      toast.success("Device added successfully");
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add device",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to add device");
     } finally {
       setIsLoading(false);
     }

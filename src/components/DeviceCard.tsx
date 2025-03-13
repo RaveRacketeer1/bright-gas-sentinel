@@ -3,12 +3,14 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Device, GasReading } from "@/types";
 import GasLevelGauge from "./GasLevelGauge";
-import { Gauge, Info } from "lucide-react";
+import { Gauge, Info, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { useDevices } from "@/context/DeviceContext";
+import { toast } from "sonner";
 
 interface DeviceCardProps {
   device: Device;
@@ -23,6 +25,8 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
 }) => {
   const [readings, setReadings] = useState<GasReading[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { removeDevice } = useDevices();
   
   useEffect(() => {
     if (expanded && device.id) {
@@ -62,6 +66,19 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
       console.error('Error fetching readings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteDevice = async () => {
+    try {
+      setIsDeleting(true);
+      await removeDevice(device.id);
+      toast.success('Device removed successfully');
+    } catch (error) {
+      console.error('Error removing device:', error);
+      toast.error('Failed to remove device');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -106,9 +123,20 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
             <Gauge className="h-5 w-5 text-proton" />
             {device.name || `Tank ${device.serialNumber.slice(-4)}`}
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={onToggleExpand}>
-            <Info className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="destructive" 
+              size="icon" 
+              onClick={handleDeleteDevice}
+              disabled={isDeleting}
+              className="h-8 w-8"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onToggleExpand} className="h-8 w-8">
+              <Info className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-4">
