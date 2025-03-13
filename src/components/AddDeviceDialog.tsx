@@ -1,10 +1,12 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AddDeviceDialogProps {
   open: boolean;
@@ -20,12 +22,43 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   const [serialNumber, setSerialNumber] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [availableDevices, setAvailableDevices] = useState<{id: string, serial_number: string}[]>([]);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(false);
+
+  // Fetch available devices when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchAvailableDevices();
+    }
+  }, [open]);
+
+  const fetchAvailableDevices = async () => {
+    try {
+      setIsLoadingDevices(true);
+      // Fetch all devices from Proton_Gas table
+      const { data, error } = await supabase
+        .from('Proton_Gas')
+        .select('id, serial_number')
+        .is('user_id', null); // Only get unassigned devices
+      
+      if (error) {
+        throw error;
+      }
+      
+      setAvailableDevices(data || []);
+    } catch (error) {
+      console.error("Error fetching available devices:", error);
+      toast.error("Failed to load available devices");
+    } finally {
+      setIsLoadingDevices(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (serialNumber.trim() === "") {
-      toast.error("Please enter a valid serial number");
+      toast.error("Please select a device");
       return;
     }
     
@@ -56,15 +89,37 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="serialNumber">Serial Number</Label>
-              <Input
-                id="serialNumber"
-                placeholder="Enter device serial number"
-                value={serialNumber}
-                onChange={(e) => setSerialNumber(e.target.value)}
-                className="proton-input"
-                required
-              />
+              <Label htmlFor="serialNumber">Select Device</Label>
+              {isLoadingDevices ? (
+                <div className="text-sm text-muted-foreground">Loading available devices...</div>
+              ) : availableDevices.length > 0 ? (
+                <Select onValueChange={setSerialNumber} value={serialNumber}>
+                  <SelectTrigger className="proton-input">
+                    <SelectValue placeholder="Select a device" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDevices.map((device) => (
+                      <SelectItem key={device.id} value={device.serial_number}>
+                        {device.serial_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No available devices found. You can manually enter a serial number below.
+                </div>
+              )}
+
+              {availableDevices.length === 0 && (
+                <Input
+                  id="serialNumber"
+                  placeholder="Enter device serial number"
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value)}
+                  className="proton-input mt-2"
+                />
+              )}
             </div>
             
             <div className="space-y-2">
